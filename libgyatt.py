@@ -1,4 +1,4 @@
-import argparse, collections, hashlib, os, re, sys, zlib
+import argparse, collections, os, re, sys
 from datetime import datetime
 import grp # read user groups database
 import pwd # read users database

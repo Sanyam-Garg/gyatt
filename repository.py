@@ -93,7 +93,7 @@ def get_repo_for_path(path=".", required=True):
             return None
     
     return get_repo_for_path(parent_path, required)
-
+    
 def create_repo(path):
     """
     Create a git repository inside the specified directory
