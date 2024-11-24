@@ -77,6 +77,23 @@ def repo_default_config():
 
     return ret
 
+def get_repo_for_path(path=".", required=True):
+    real_path = os.path.realpath(path)
+
+    if os.path.isdir(os.path.join(real_path, ".git")):
+        return Repository(real_path)
+    
+    parent_path = os.path.realpath(os.path.join(real_path, ".."))
+
+    # base case for when real_path is `/`
+    if parent_path == real_path:
+        if required:
+            raise Exception(f"No git directory.")
+        else:
+            return None
+    
+    return get_repo_for_path(parent_path, required)
+
 def create_repo(path):
     """
     Create a git repository inside the specified directory
