@@ -100,6 +100,20 @@ def object_find(repo, name, type=None, follow=True):
     """
     return name
 
+def object_hash(fp, type, repo):
+    """
+    Hash object, write it to repo if not None.
+    """
+    data = fp.read()
+
+    match type:
+        case b'commit': obj=Commit(data)
+        case b'tag': obj=Tag(data)
+        case b'tree': obj=Tree(data)
+        case b'blob': obj=Blob(data)
+    
+    return object_write(obj, repo)
+
 class Blob(Object):
     """
     Blobs are user data. The content of every file you put in git is stored as a blob.
