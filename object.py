@@ -45,7 +45,7 @@ def object_read(repo, sha):
     """
     Read object from a git repository given its sha hash
     """
-    path_to_object = get_path_to_repo_file(repo, sha[:2], sha[2:])
+    path_to_object = get_path_to_repo_file(repo, "objects", sha[:2], sha[2:])
 
     if not os.path.isfile(path_to_object):
         return None
@@ -86,10 +86,29 @@ def object_write(obj, repo=None):
     sha = hashlib.sha1(result).hexdigest()
 
     if repo:
-        path = get_path_to_repo_file(repo, sha[:2], sha[2:], mkdir=True)
+        path = get_path_to_repo_file(repo, "objects", sha[:2], sha[2:], mkdir=True)
 
         if not os.path.exists(path):
             with open(path, 'wb') as fp:
                 fp.write(zlib.compress(result))
     
     return sha
+
+def object_find(repo, name, type=None, follow=True):
+    """
+    Name resolution function based on the object identifier passed.
+    """
+    return name
+
+class Blob(Object):
+    """
+    Blobs are user data. The content of every file you put in git is stored as a blob.
+    """
+
+    object_type=b'blob'
+
+    def serialize(self):
+        return self.blobdata
+    
+    def deserialize(self, data):
+        self.blobdata = data
