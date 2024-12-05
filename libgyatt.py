@@ -5,7 +5,7 @@ import pwd # read users database
 from fnmatch import fnmatch # to support patterns like "*.txt" in .gitignore
 from math import ceil
 from repository import *
-from object import *
+from objects import *
 
 def cmd_init(args):
     create_repo(args.path)
@@ -33,6 +33,43 @@ def cmd_hash_object(args):
         sha = object_hash(fp, args.type.encode(), repo)
         print(sha)
 
+def cmd_log(sha):
+    repo = get_repo_for_path()
+
+    print("digraph wyaglog{")
+    print("  node[shape=rect]")
+    log_graphviz(repo, object_find(repo, sha), set())
+    print("}")
+
+def log_graphviz(repo, sha, seen):
+    if sha in seen:
+        return
+    
+    seen.add(sha)
+
+    commit = object_read(repo, sha)
+    short_hash = sha[:8]
+    message = commit.kvlm[None].decode('utf-8').strip()
+    message = message.replace('\\', '\\\\')
+    message = message.replace('"', '\\"')
+
+    if "\n" in message: # get only first line
+        message = message[:message.index('\n ')]
+    
+    print(f'  c_{sha} [label="{short_hash}: {message}"]')
+    assert commit.object_type == b'commit'
+
+    if not b'parent' in commit.kvlm.keys():
+        return
+    
+    parents = commit.kvlm[b'parent']
+    if type(parents) != list:
+        parents = [parents]
+    
+    for p in parents:
+        p = p.decode('ascii')
+        print(f'  c_{sha} -> c_{p}')
+        log_graphviz(repo, p, seen)
 
 
 # entrypoint
@@ -76,3 +113,8 @@ hash_object_cmd.add_argument("-t", metavar="type", dest="type",
                               help="Specify the type")
 hash_object_cmd.add_argument("-w", dest="write", action="store_true", help="Actually write the object in the git repository")
 hash_object_cmd.add_argument("path", help="Path to the object file")
+
+log_cmd = argsubparsers.add_parser("log", help="Display the history of a given commit")
+log_cmd.add_argument("commit", default="HEAD", nargs="?", help="Commit to start at")
+
+cmd_log("3cbe4985b39818b0b8605c93b128a959ca23ab00")
