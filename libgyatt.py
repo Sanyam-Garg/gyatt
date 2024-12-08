@@ -117,4 +117,4 @@ hash_object_cmd.add_argument("path", help="Path to the object file")
 log_cmd = argsubparsers.add_parser("log", help="Display the history of a given commit")
 log_cmd.add_argument("commit", default="HEAD", nargs="?", help="Commit to start at")
 
-cmd_log("3cbe4985b39818b0b8605c93b128a959ca23ab00")
+cmd_log("e0dce59e4a4abd5dd1a97bacfaf0acccd5040562")

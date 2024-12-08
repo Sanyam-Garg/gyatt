@@ -204,3 +204,77 @@ class Commit(Object):
     
     def init(self):
         self.kvlm = collections.OrderedDict()
+
+# Wrapper for a single record in the tree
+class TreeLeaf(object):
+    def __init__(self, mode, path, sha):
+        self.mode = mode
+        self.path= path
+        self.sha = sha
+
+def tree_parse_one_record(raw, start=0):
+    space = raw.find(b' ', start)
+    assert space - start == 5 or space - start == 6
+
+    mode = raw[start:space]
+    if len(mode) == 5:
+        # normalize the mode to 6 bytes
+        mode = b' ' + mode
+    
+    null_terminator = raw.find(b'\x00', space)
+    path = raw[space+1:null_terminator]
+
+    raw_sha = int.from_bytes(raw[null_terminator+1:null_terminator+21], "big")
+
+    # convert to hex string, padded to 40 chars with zeroes if needed.
+    sha = format(raw_sha, "040x")
+    return null_terminator+21, TreeLeaf(mode, path, sha)
+
+def tree_parse(raw):
+    curr = 0
+    max = len(raw)
+    all_tuples = list()
+
+    while curr < max:
+        curr, data = tree_parse_one_record(raw, curr)
+        all_tuples.append(data)
+    
+    return all_tuples
+
+def tree_leaf_sort_key(leaf: TreeLeaf):
+    if leaf.mode.startswith(b'10'):
+        return leaf.path
+    else:
+        return leaf.path + '/'
+
+class Tree(Object):
+    """
+    https://wyag.thb.lt/#org5f03666
+    Tree describes the contents of the work tree, maps the blobs --> path.
+    Array of 3 element tuples (file_mode, path, sha-1)
+    The SHA refers to either a blob or another tree.
+    Format: [mode] space [path] 0x00 [sha-1]
+    """
+    object_type = b'tree'
+    def serialize(self, repo):
+        return tree_serialize(self)
+    
+    def deserialize(self, data):
+        self.items = tree_parse(data)
+    
+    def init(self):
+        self.items = list()
+    
+def tree_serialize(tree: Tree):
+    tree.items.sort(key=tree_leaf_sort_key)
+    serialized_tree = b''
+
+    for leaf in tree.items:
+        serialized_tree += leaf.mode
+        serialized_tree += b' '
+        serialized_tree += leaf.path.encode('utf-8')
+        serialized_tree += '\x00'
+        sha = int(leaf.sha, 16)
+        serialized_tree += sha.to_bytes(20, byteorder='big')
+
+    return serialized_tree
