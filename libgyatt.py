@@ -6,6 +6,7 @@ from fnmatch import fnmatch # to support patterns like "*.txt" in .gitignore
 from math import ceil
 from repository import *
 from objects import *
+from refs import *
 
 def cmd_init(args):
     create_repo(args.path)
@@ -63,6 +64,18 @@ def cmd_checkout(args):
         os.makedirs(args.path)
     
     tree_checkout(repo, obj, os.path.realpath(args.path))
+
+def cmd_show_ref(args):
+    repo = get_repo_for_path()
+    refs = ref_list(repo)
+    show_ref(repo, refs, prefix="refs")
+
+def show_ref(repo, refs, with_hash=True, prefix=""):
+    for key, val in refs.items():
+        if type(val) == str:
+            print(f"{val + " " if with_hash else ""}{prefix + "/" if prefix else ""}{key}")
+        else:
+            show_ref(repo, val, with_hash=with_hash, prefix=f"{prefix}{"/" if prefix else ""}{key}")
 
 def tree_checkout(repo, tree: Tree, path):
     for item in tree.items:
@@ -182,4 +195,5 @@ checkout_cmd = argsubparsers.add_parser("checkout", help="Checkout a commit insi
 checkout_cmd.add_argument("commit", help="The commit or tree to checkout")
 checkout_cmd.add_argument("path", help="The EMPTY directory to checkout on")
 
+show_ref_cmd = argsubparsers.add_parser("show-ref", help="List references")
 # cmd_ls_tree("02f5a2e1747525f47657c3efcc0753d9ffdc46a0")
