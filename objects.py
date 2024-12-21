@@ -242,6 +242,9 @@ def tree_parse(raw):
     return all_tuples
 
 def tree_leaf_sort_key(leaf: TreeLeaf):
+    """
+    Directories are sorted with a final '/' at their end.
+    """
     if leaf.mode.startswith(b'10'):
         return leaf.path
     else:

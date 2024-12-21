@@ -41,6 +41,31 @@ def cmd_log(sha):
     log_graphviz(repo, object_find(repo, sha), set())
     print("}")
 
+def cmd_ls_tree(args):
+    repo = get_repo_for_path()
+    ls_tree(repo, args.tree, args.recursive)
+
+def ls_tree(repo, tree_ref, recursive=False, prefix=""):
+    sha = object_find(repo, tree_ref, b'tree')
+    obj = object_read(repo, sha)
+    for item in obj.items:
+        if len(item.mode) == 5:
+            leaf_type = item.mode[:1]
+        else:
+            leaf_type = item.mode[:2]
+
+        match leaf_type:
+            case b'04': leaf_type = "tree"
+            case b'10': leaf_type = "blob" # a regular file
+            case b'12': leaf_type = "blob" # symlink. blob contents is link target
+            case b'16': leaf_type = "commit" # submodule
+            case _: raise Exception(f"Weird tree leaf node {item.mode}")
+        
+        if not (recursive and leaf_type=="tree"):
+            print(f"{"0"*(6-len(item.mode)) + item.mode.decode('ascii')} {leaf_type} {item.sha}\t {os.path.join(prefix, item.path.decode('ascii'))}")
+        else:
+            ls_tree(repo, item.sha, recursive, os.path.join(prefix, item.path))
+
 def log_graphviz(repo, sha, seen):
     if sha in seen:
         return
@@ -117,4 +142,8 @@ hash_object_cmd.add_argument("path", help="Path to the object file")
 log_cmd = argsubparsers.add_parser("log", help="Display the history of a given commit")
 log_cmd.add_argument("commit", default="HEAD", nargs="?", help="Commit to start at")
 
-cmd_log("e0dce59e4a4abd5dd1a97bacfaf0acccd5040562")
+ls_tree_cmd = argsubparsers.add_parser("ls-tree", help="Pretty print a tree object")
+ls_tree_cmd.add_argument("-r", dest="recursive", action="store_true", help="Recurse into sub trees and get final objects.")
+ls_tree_cmd.add_argument("tree", help="A treeish object")
+
+# cmd_ls_tree("02f5a2e1747525f47657c3efcc0753d9ffdc46a0")
