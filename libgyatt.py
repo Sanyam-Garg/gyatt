@@ -45,6 +45,37 @@ def cmd_ls_tree(args):
     repo = get_repo_for_path()
     ls_tree(repo, args.tree, args.recursive)
 
+def cmd_checkout(args):
+    repo = get_repo_for_path()
+    obj = object_read(repo, object_find(repo, args.commit))
+
+    # if the object is a commit, we grab its tree
+    if obj.object_type == b'commit':
+        obj = object_read(repo, obj.kvlm[b'tree'].decode('ascii'))
+    
+    # verify that the path is an empty directory
+    if os.path.exists(args.path):
+        if not os.path.isdir(args.path):
+            raise Exception(f"Not a directory {args.path}!")
+        if os.listdir(args.path):
+            raise Exception(f"Not empty {args.path}!")
+    else:
+        os.makedirs(args.path)
+    
+    tree_checkout(repo, obj, os.path.realpath(args.path))
+
+def tree_checkout(repo, tree: Tree, path):
+    for item in tree.items:
+        obj = object_read(repo, item.sha)
+        dest = os.path.join(path, item.path)
+
+        if obj.object_type == b'tree':
+            os.mkdir(dest)
+            tree_checkout(repo, obj, dest)
+        elif obj.object_type == b'blob':
+            with open(dest, 'wb') as fp:
+                fp.write(obj.serialize())
+
 def ls_tree(repo, tree_ref, recursive=False, prefix=""):
     sha = object_find(repo, tree_ref, b'tree')
     obj = object_read(repo, sha)
@@ -145,5 +176,10 @@ log_cmd.add_argument("commit", default="HEAD", nargs="?", help="Commit to start 
 ls_tree_cmd = argsubparsers.add_parser("ls-tree", help="Pretty print a tree object")
 ls_tree_cmd.add_argument("-r", dest="recursive", action="store_true", help="Recurse into sub trees and get final objects.")
 ls_tree_cmd.add_argument("tree", help="A treeish object")
+
+# https://wyag.thb.lt/#cmd-checkout
+checkout_cmd = argsubparsers.add_parser("checkout", help="Checkout a commit inside a directory.")
+checkout_cmd.add_argument("commit", help="The commit or tree to checkout")
+checkout_cmd.add_argument("path", help="The EMPTY directory to checkout on")
 
 # cmd_ls_tree("02f5a2e1747525f47657c3efcc0753d9ffdc46a0")
