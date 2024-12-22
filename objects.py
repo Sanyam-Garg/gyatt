@@ -281,3 +281,6 @@ def tree_serialize(tree: Tree):
         serialized_tree += sha.to_bytes(20, byteorder='big')
 
     return serialized_tree
+
+class Tag(Commit):
+    object_type = b'tag'
