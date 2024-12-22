@@ -80,6 +80,15 @@ def cmd_tag(args):
         refs = ref_list(repo)
         show_ref(repo, refs["tags"], with_hash=False)
 
+def cmd_rev_parse(args):
+    if args.type:
+        object_type = args.type.encode()
+    else:
+        object_type = None
+    
+    repo = get_repo_for_path()
+    print(object_find(repo, args.name, object_type, follow=True))
+
 def tag_create(repo, name, ref, create_object=False):
     sha = object_find(repo, ref)
 
@@ -233,6 +242,9 @@ tag_cmd.add_argument("-a", action="store_true", dest="create_tag_object", help="
 tag_cmd.add_argument("name", nargs="?", help="Name of the tag")
 tag_cmd.add_argument("object", default="HEAD", nargs="?", help="The object the new tag points to")
 
+rev_parse_cmd = argsubparsers.add_parser("rev-parse", help="Parse revision (or other object) identifiers")
+rev_parse_cmd.add_argument("--gyatt-type", metavar="type", dest="type", choices=['blob', 'commit', 'tag', 'tree'], default=None, help="Specify the expected type")
+rev_parse_cmd.add_argument("name", help="The name to parse")
 # cmd_ls_tree("02f5a2e1747525f47657c3efcc0753d9ffdc46a0")
 # tag_create(get_repo_for_path(), "TEST", "311de2a48c30fd0fd92cf2f7ecf68ad1f8b35428", True)
-cat_file(get_repo_for_path(), 'master', 'tree')
+# cat_file(get_repo_for_path(), 'master', 'tree')

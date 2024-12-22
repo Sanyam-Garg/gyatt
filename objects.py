@@ -161,7 +161,7 @@ def object_find(repo, name, type=None, follow=True):
         # TODO: we are reading the entire object just to get the type. can be optimized.
         obj = object_read(repo, sha)
 
-        if obj.object_type.decode() == type:
+        if obj.object_type == type:
             return sha
         
         if not follow:
@@ -170,7 +170,7 @@ def object_find(repo, name, type=None, follow=True):
         # follow tags
         if obj.object_type == b'tag':
             sha = obj.kvlm[b'object'].decode('ascii')
-        elif obj.object_type == b'commit' and type == 'tree':
+        elif obj.object_type == b'commit' and type == b'tree':
             sha = obj.kvlm[b'tree'].decode('ascii')
         else:
             return None
