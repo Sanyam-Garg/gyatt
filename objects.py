@@ -185,6 +185,7 @@ def kvlm_serialize(kvlm):
     
     # append message
     output += b'\n' + kvlm[None] + b'\n'
+    return output
 
 class Commit(Object):
     """
