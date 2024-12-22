@@ -18,7 +18,7 @@ The objects are compressed with zlib before storing.
 """
 
 from repository import *
-import zlib, hashlib
+import zlib, hashlib, re
 
 class Object():
 
@@ -94,11 +94,86 @@ def object_write(obj, repo=None):
     
     return sha
 
-def object_find(repo, name, type=None, follow=True):
+def object_resolve(repo, name):
     """
     Name resolution function based on the object identifier passed.
+
+    This can be used to resolve:
+    * the HEAD literal
+    * short and long hashes
+    * tags
+    * branches
+    * remote branches
     """
-    return name
+    candidates = list()
+    hashRE = re.compile(f"^[0-9A-Fa-f]{4,40}$") # git has a minimum limit of 4 to be considered a short hash
+
+    # empty string
+    if not name.strip():
+        return None
+    
+    if name == "HEAD":
+        return [ref_resolve(repo, "HEAD")]
+    
+    # if hex string, try for a hash 
+    if hashRE.match(name):
+        name = name.lower()
+        prefix = name[:2]
+        path = get_path_to_repo_dir(repo, "objects", prefix)
+        if path:
+            remaining_hash = name[2:]
+            for file in os.listdir(path):
+                if file.startswith(remaining_hash):
+                    candidates.append(prefix + file)
+    
+    # try for tag references
+    as_tag = ref_resolve(repo, "refs/tags/" + name)
+    if as_tag:
+        candidates.append(as_tag)
+    
+    # try for local branches
+    as_local_branch = ref_resolve(repo, "refs/heads/" + name)
+    if as_local_branch:
+        candidates.append(as_local_branch)
+    
+    # try for remote branches: "origin/master"
+    as_remote_branch = ref_resolve(repo, "refs/remotes/" + name)
+    if as_remote_branch:
+        candidates.append(as_remote_branch)
+    
+    return candidates
+
+def object_find(repo, name, type=None, follow=True):
+    sha = object_resolve(repo, name)
+
+    if not sha:
+        raise Exception(f"No such reference {name}.")
+    
+    if len(sha) > 1:
+        raise Exception(f"Ambiguous reference {name}: Candidates are \n - {"\n -".join(sha)}")
+    
+    sha = sha[0].strip('\n')
+
+    if not type:
+        return sha
+    
+    while True:
+        # TODO: we are reading the entire object just to get the type. can be optimized.
+        obj = object_read(repo, sha)
+
+        if obj.object_type.decode() == type:
+            return sha
+        
+        if not follow:
+            return None
+        
+        # follow tags
+        if obj.object_type == b'tag':
+            sha = obj.kvlm[b'object'].decode('ascii')
+        elif obj.object_type == b'commit' and type == 'tree':
+            sha = obj.kvlm[b'tree'].decode('ascii')
+        else:
+            return None
 
 def object_hash(fp, type, repo):
     """
@@ -260,7 +335,7 @@ class Tree(Object):
     Format: [mode] space [path] 0x00 [sha-1]
     """
     object_type = b'tree'
-    def serialize(self, repo):
+    def serialize(self):
         return tree_serialize(self)
     
     def deserialize(self, data):
@@ -276,8 +351,8 @@ def tree_serialize(tree: Tree):
     for leaf in tree.items:
         serialized_tree += leaf.mode
         serialized_tree += b' '
-        serialized_tree += leaf.path.encode('utf-8')
-        serialized_tree += '\x00'
+        serialized_tree += leaf.path
+        serialized_tree += b'\x00'
         sha = int(leaf.sha, 16)
         serialized_tree += sha.to_bytes(20, byteorder='big')
 
@@ -285,3 +360,32 @@ def tree_serialize(tree: Tree):
 
 class Tag(Commit):
     object_type = b'tag'
+
+def ref_resolve(repo, ref):
+    path = get_path_to_repo_file(repo, ref)
+
+    if not os.path.exists(path):
+        return None
+    
+    with open(path, 'r') as fp:
+        content = fp.read()
+    
+    if content.startswith("ref: "):
+        return ref_resolve(repo, content[5:].strip('\n'))
+    return content
+
+def ref_list(repo, path=None):
+    if not path:
+        path = get_path_to_repo_dir(repo, "refs")
+    
+    refs = collections.OrderedDict()
+
+    for file in sorted(os.listdir(path)):
+        file_path = os.path.join(path, file)
+
+        if os.path.isdir(file_path):
+            refs[file] = ref_list(repo, file_path)
+        else:
+            refs[file] = ref_resolve(repo, file_path)
+    
+    return refs

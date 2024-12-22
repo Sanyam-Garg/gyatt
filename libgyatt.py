@@ -1,4 +1,4 @@
-import argparse, collections, os, re, sys
+import argparse, collections, os, sys
 from datetime import datetime
 import grp # read user groups database
 import pwd # read users database
@@ -6,7 +6,6 @@ from fnmatch import fnmatch # to support patterns like "*.txt" in .gitignore
 from math import ceil
 from repository import *
 from objects import *
-from refs import *
 
 def cmd_init(args):
     create_repo(args.path)
@@ -235,4 +234,5 @@ tag_cmd.add_argument("name", nargs="?", help="Name of the tag")
 tag_cmd.add_argument("object", default="HEAD", nargs="?", help="The object the new tag points to")
 
 # cmd_ls_tree("02f5a2e1747525f47657c3efcc0753d9ffdc46a0")
-tag_create(get_repo_for_path(), "TEST", "311de2a48c30fd0fd92cf2f7ecf68ad1f8b35428", True)
+# tag_create(get_repo_for_path(), "TEST", "311de2a48c30fd0fd92cf2f7ecf68ad1f8b35428", True)
+cat_file(get_repo_for_path(), 'master', 'tree')
