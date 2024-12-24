@@ -1,11 +1,8 @@
-import argparse, collections, os, sys
-from datetime import datetime
-import grp # read user groups database
-import pwd # read users database
-from fnmatch import fnmatch # to support patterns like "*.txt" in .gitignore
-from math import ceil
+import argparse, os, sys
 from repository import *
+import pwd, grp
 from objects import *
+from index import *
 
 def cmd_init(args):
     create_repo(args.path)
@@ -88,6 +85,25 @@ def cmd_rev_parse(args):
     
     repo = get_repo_for_path()
     print(object_find(repo, args.name, object_type, follow=True))
+
+def cmd_ls_files(args):
+    repo = get_repo_for_path()
+    index = index_read(repo)
+
+    if args.verbose:
+        print(f"Index file format v{index.version}, containing {index.entries} entries")
+    
+    for entry in index.entries:
+        print(entry.name)
+        if args.verbose:
+            mode_dict = {0b1000: "regular file", 0b1010: "symlink", 0b1110: "git link"}
+            
+            print(f"  {mode_dict[entry.mode_type]} with perms: {entry.mode_perms:o}")
+            print(f"  on blob: {entry.sha}")
+            print(f"  created: {entry.ctime[0]}.{entry.ctime[1]}, modified: {entry.mtime[0]}.{entry.mtime[1]}")
+            print(f"  device: {entry.dev}, inode: {entry.ino}")
+            print(f"  user: {pwd.getpwuid(entry.uid).pw_name} ({entry.uid}), group: {grp.getgrgid(entry.gid).gr_name} ({entry.gid})")
+            print(f"  flags: stage={entry.flag_stage} assume_valid={entry.flag_assume_valid}")
 
 def tag_create(repo, name, ref, create_object=False):
     sha = object_find(repo, ref)
@@ -245,6 +261,10 @@ tag_cmd.add_argument("object", default="HEAD", nargs="?", help="The object the n
 rev_parse_cmd = argsubparsers.add_parser("rev-parse", help="Parse revision (or other object) identifiers")
 rev_parse_cmd.add_argument("--gyatt-type", metavar="type", dest="type", choices=['blob', 'commit', 'tag', 'tree'], default=None, help="Specify the expected type")
 rev_parse_cmd.add_argument("name", help="The name to parse")
+
+ls_files_cmd = argsubparsers.add_parser("ls-files", help="List all the staging area files")
+ls_files_cmd.add_argument("--verbose", action="store_true", help="Show everything")
+
 # cmd_ls_tree("02f5a2e1747525f47657c3efcc0753d9ffdc46a0")
 # tag_create(get_repo_for_path(), "TEST", "311de2a48c30fd0fd92cf2f7ecf68ad1f8b35428", True)
 # cat_file(get_repo_for_path(), 'master', 'tree')
