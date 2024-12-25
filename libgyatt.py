@@ -3,6 +3,7 @@ from repository import *
 import pwd, grp
 from objects import *
 from index import *
+from ignore import gitignore_read, check_ignore
 
 def cmd_init(args):
     create_repo(args.path)
@@ -104,6 +105,14 @@ def cmd_ls_files(args):
             print(f"  device: {entry.dev}, inode: {entry.ino}")
             print(f"  user: {pwd.getpwuid(entry.uid).pw_name} ({entry.uid}), group: {grp.getgrgid(entry.gid).gr_name} ({entry.gid})")
             print(f"  flags: stage={entry.flag_stage} assume_valid={entry.flag_assume_valid}")
+
+def cmd_check_ignore(args):
+    repo = get_repo_for_path()
+    rules = gitignore_read(repo)
+
+    for path in args.path:
+        if check_ignore(rules, path):
+            print(path)
 
 def tag_create(repo, name, ref, create_object=False):
     sha = object_find(repo, ref)
@@ -264,6 +273,9 @@ rev_parse_cmd.add_argument("name", help="The name to parse")
 
 ls_files_cmd = argsubparsers.add_parser("ls-files", help="List all the staging area files")
 ls_files_cmd.add_argument("--verbose", action="store_true", help="Show everything")
+
+check_ignore_cmd = argsubparsers.add_parser("check-ignore", help="Check paths against ignore rules")
+checkout_cmd.add_argument("path", nargs="+", help="Paths to check")
 
 # cmd_ls_tree("02f5a2e1747525f47657c3efcc0753d9ffdc46a0")
 # tag_create(get_repo_for_path(), "TEST", "311de2a48c30fd0fd92cf2f7ecf68ad1f8b35428", True)
