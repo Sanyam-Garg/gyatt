@@ -123,7 +123,9 @@ def cmd_status(args):
     # changes to be committed --> how the staging area is different from the current HEAD
     cmd_status_head_index(repo, index)
     print()
-    # cmd_status_index_worktree(repo, index)
+
+    # changes not staged for commit:
+    cmd_status_index_worktree(repo, index)
 
 def branch_get_active(repo):
     with open(get_path_to_repo_file(repo, "HEAD"), 'r') as fp:
@@ -158,6 +160,62 @@ def cmd_status_head_index(repo, index):
     # keys still in the head tree but not in index have been deleted
     for path in head_tree.keys():
         print(f"  deleted: {path}")
+
+def cmd_status_index_worktree(repo, index):
+    print("Changes not staged for commit:")
+
+    ignore = gitignore_read(repo)
+
+    gitdir_prefix = repo.gitdir + os.path.sep
+
+    all_files = list()
+
+    # walk the filesystem: remember repo.worktree is simply the root path for the repository
+    for root, _, files in os.walk(repo.worktree, True):
+        if root == repo.gitdir or root.startswith(gitdir_prefix):
+            continue
+
+        for file in files:
+            full_path = os.path.join(root, file)
+            rel_path = os.path.relpath(full_path, repo.worktree)
+            # append path relative to repo root, since that's what we'll look for in the index file
+            all_files.append(rel_path)
+    
+    for entry in index.entries:
+        full_path = os.path.join(repo.worktree, entry.name)
+
+        # if path is in index, but not in the file system, that that file is deleted.
+        if not os.path.exists(full_path):
+            print(f"  deleted  : {entry.name}")
+        else:
+            # creation and modification time acc to the file system
+            stat = os.stat(full_path)
+
+            # compare created and modification times
+
+            ## creation and modification time acc to the index file
+            ctime_ns = entry.ctime[0] * 10 ** 9 + entry.ctime[1]
+            mtime_ns = entry.mtime[0] * 10 ** 9 + entry.mtime[1]
+
+            if (stat.st_ctime_ns != ctime_ns) or (stat.st_mtime_ns != mtime_ns):
+                # if times are different, deep compare
+                # @FIXME This *will* crash on symlinks to dir.
+                with open(full_path, "rb") as fp:
+                    # get the hash for the blob object with current contents
+                    sha = object_hash(fp, b'blob', None)
+
+                    if entry.sha != sha:
+                        print(f"  modified:  {entry.name}")
+        
+        # this is to get all the currently untracked files
+        if entry.name in all_files:
+            all_files.remove(entry.name)
+    
+    print("\nUntracked files:")
+
+    for file in all_files:
+        if not check_ignore(ignore, file):
+            print(f" {file}")
 
 def tag_create(repo, name, ref, create_object=False):
     sha = object_find(repo, ref)
@@ -323,7 +381,7 @@ check_ignore_cmd = argsubparsers.add_parser("check-ignore", help="Check paths ag
 checkout_cmd.add_argument("path", nargs="+", help="Paths to check")
 
 status_cmd = argsubparsers.add_parser("status", help="Show the working tree status")
-
+# cmd_status({})
 # cmd_ls_tree("02f5a2e1747525f47657c3efcc0753d9ffdc46a0")
 # tag_create(get_repo_for_path(), "TEST", "311de2a48c30fd0fd92cf2f7ecf68ad1f8b35428", True)
 # cat_file(get_repo_for_path(), 'master', 'tree')

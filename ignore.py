@@ -13,7 +13,7 @@ class Ignore():
         (.git/info/exclude). Applied everywhere, but at a lower priority.
     """
 
-    def __init__(self, absolute, scoped):
+    def __init__(self, absolute=None, scoped=None):
         self.absolute = absolute if absolute else list()
         self.scoped = scoped if scoped else dict()
 
@@ -71,7 +71,7 @@ def gitignore_read(repo):
             dir_name = os.path.dirname(entry.name)
             contents = object_read(repo, entry.sha)
             lines = contents.blobdata.decode('utf-8').splitlines()
-            ignore.scoped[dir_name].append(gitignore_parse(lines))
+            ignore.scoped[dir_name] = gitignore_parse(lines)
     
     return ignore
 
