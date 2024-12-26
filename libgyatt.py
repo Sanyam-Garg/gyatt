@@ -119,7 +119,9 @@ def cmd_status(args):
     index = index_read(repo)
 
     cmd_status_branch(repo)
-    # cmd_status_head_index(repo, index)
+    
+    # changes to be committed --> how the staging area is different from the current HEAD
+    cmd_status_head_index(repo, index)
     print()
     # cmd_status_index_worktree(repo, index)
 
@@ -133,12 +135,29 @@ def branch_get_active(repo):
     return head.strip('\n'), False
 
 def cmd_status_branch(repo):
-    ref, isBranch = branch_get_active(repo)
+    ref, is_branch = branch_get_active(repo)
 
-    if isBranch:
+    if is_branch:
         print(f"On branch {ref}.")
     else:
         print(f"HEAD deteached at {ref}")
+
+def cmd_status_head_index(repo, index):
+    print("Changes to be committed:")
+
+    head_tree = tree_to_dict(repo, "HEAD")
+
+    for entry in index.entries:
+        if entry.name in head_tree:
+            if head_tree[entry.name] != entry.sha:
+                print(f"  modified: {entry.name}")
+            del head_tree[entry.name]
+        else:
+            print(f"  added:  {entry.name}")
+    
+    # keys still in the head tree but not in index have been deleted
+    for path in head_tree.keys():
+        print(f"  deleted: {path}")
 
 def tag_create(repo, name, ref, create_object=False):
     sha = object_find(repo, ref)

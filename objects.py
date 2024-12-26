@@ -358,6 +358,22 @@ def tree_serialize(tree: Tree):
 
     return serialized_tree
 
+def tree_to_dict(repo, ref, prefix=""):
+    data = dict()
+    tree_sha = object_find(repo, ref, b'tree')
+    tree = object_read(repo, tree_sha)
+
+    for item in tree.items:
+        full_path = os.path.join(prefix, item.path.decode())
+        is_subtree = item.mode.startswith(b'04')
+
+        if is_subtree:
+            data.update(tree_to_dict(repo, item.sha, prefix=full_path))
+        else:
+            data[full_path] = item.sha
+    
+    return data
+
 class Tag(Commit):
     object_type = b'tag'
 
