@@ -114,6 +114,32 @@ def cmd_check_ignore(args):
         if check_ignore(rules, path):
             print(path)
 
+def cmd_status(args):
+    repo = get_repo_for_path()
+    index = index_read(repo)
+
+    cmd_status_branch(repo)
+    # cmd_status_head_index(repo, index)
+    print()
+    # cmd_status_index_worktree(repo, index)
+
+def branch_get_active(repo):
+    with open(get_path_to_repo_file(repo, "HEAD"), 'r') as fp:
+        head = fp.read()
+    
+    if head.startswith("ref: "):
+        return head[16:].strip('\n'), True # don't want the trailing \n
+    
+    return head.strip('\n'), False
+
+def cmd_status_branch(repo):
+    ref, isBranch = branch_get_active(repo)
+
+    if isBranch:
+        print(f"On branch {ref}.")
+    else:
+        print(f"HEAD deteached at {ref}")
+
 def tag_create(repo, name, ref, create_object=False):
     sha = object_find(repo, ref)
 
@@ -276,6 +302,8 @@ ls_files_cmd.add_argument("--verbose", action="store_true", help="Show everythin
 
 check_ignore_cmd = argsubparsers.add_parser("check-ignore", help="Check paths against ignore rules")
 checkout_cmd.add_argument("path", nargs="+", help="Paths to check")
+
+status_cmd = argsubparsers.add_parser("status", help="Show the working tree status")
 
 # cmd_ls_tree("02f5a2e1747525f47657c3efcc0753d9ffdc46a0")
 # tag_create(get_repo_for_path(), "TEST", "311de2a48c30fd0fd92cf2f7ecf68ad1f8b35428", True)
