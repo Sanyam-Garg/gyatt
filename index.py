@@ -170,3 +170,57 @@ def index_read(repo):
                                      name=name))
     
     return Index(version=version, entries=entries)
+
+def index_write(repo, index):
+    with open(get_path_to_repo_file(repo, "index"), 'wb') as fp:
+
+        # HEADER
+
+        fp.write(b'DIRC')
+        fp.write(index.version.to_bytes(4, 'big'))
+        fp.write(len(index.entries).to_bytes(4, 'big'))
+
+        # ENTRIES
+        idx = 0
+        for entry in index.entries:
+            fp.write(entry.ctime[0].to_bytes(4, 'big'))
+            fp.write(entry.ctime[1].to_bytes(4, 'big'))
+            fp.write(entry.mtime[0].to_bytes(4, 'big'))
+            fp.write(entry.mtime[1].to_bytes(4, 'big'))
+            fp.write(entry.dev.to_bytes(4, 'big'))
+            fp.write(entry.ino.to_bytes(4, 'big'))
+
+            # mode
+            mode = (entry.mode_type << 12) | entry.mode_perms
+            # this covers unused part as well
+            fp.write(mode.to_bytes(4, 'big'))
+
+            fp.write(entry.uid.to_bytes(4, 'big'))
+            fp.write(entry.gid.to_bytes(4, 'big'))
+
+            fp.write(entry.fsize.to_bytes(4, 'big'))
+            fp.write(int(entry.sha, 16).to_bytes(20, 'big'))
+
+            flag_assume_valid = 0x1 << 15 if entry.flag_assume_valid else 0
+
+            name_bytes = entry.name.encode('utf-8')
+            name_bytes_len = len(name_bytes)
+            if name_bytes_len > 0xfff:
+                name_length = 0xfff
+            else:
+                name_length = name_bytes_len
+            
+            # merge back the 2 flags and the length of the name on the same 2 bytes
+            fp.write((flag_assume_valid | entry.flag_stage | name_length).to_bytes(2, 'big'))
+
+            fp.write(name_bytes)
+
+            fp.write((0).to_bytes(1, 'big'))
+
+            idx += 62 + len(name_bytes) + 1
+
+            if idx % 8 != 0:
+                # padding
+                pad = 8 - (idx % 8)
+                fp.write((0).to_bytes(pad, 'big'))
+                idx += pad 
