@@ -127,6 +127,44 @@ def cmd_status(args):
     # changes not staged for commit:
     cmd_status_index_worktree(repo, index)
 
+def cmd_rm(args):
+    repo = get_repo_for_path()
+    rm(repo, args.path)
+
+def rm(repo, paths, delete=True, skip_missing=False):
+    index = index_read(repo)
+
+    worktree = repo.worktree + os.sep
+
+    abspaths = set()
+    for path in paths:
+        abspath = os.path.abspath(path)
+        if abspath.startswith(worktree):
+            abspaths.add(abspath)
+        else:
+            raise Exception(f"Cannot remove paths outside of the worktree: {paths}")
+    
+    keep_entries = list()
+    removed_paths = list()
+
+    for entry in index.entries:
+        full_path = os.path.join(repo.worktree, entry.name)
+        if full_path in abspaths:
+            removed_paths.append(full_path)
+            abspaths.remove(full_path)
+        else:
+            keep_entries.append(entry)
+    
+    if len(abspaths) > 0 and not skip_missing:
+        raise Exception(f"Cannot remove paths not in the index: {abspaths}")
+    
+    if delete:
+        for path in removed_paths:
+            os.unlink(path)
+    
+    index.entries = keep_entries
+    index_write(repo, index)
+
 def branch_get_active(repo):
     with open(get_path_to_repo_file(repo, "HEAD"), 'r') as fp:
         head = fp.read()
@@ -381,6 +419,11 @@ check_ignore_cmd = argsubparsers.add_parser("check-ignore", help="Check paths ag
 checkout_cmd.add_argument("path", nargs="+", help="Paths to check")
 
 status_cmd = argsubparsers.add_parser("status", help="Show the working tree status")
+
+rm_cmd = argsubparsers.add_parser("rm", help="Remove files from the working tree and the index")
+rm_cmd.add_argument("path", nargs="+", help="Files to remove")
+
+# rm(get_repo_for_path(), ['test.txt'])
 # cmd_status({})
 # cmd_ls_tree("02f5a2e1747525f47657c3efcc0753d9ffdc46a0")
 # tag_create(get_repo_for_path(), "TEST", "311de2a48c30fd0fd92cf2f7ecf68ad1f8b35428", True)
