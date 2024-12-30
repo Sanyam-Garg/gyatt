@@ -131,6 +131,47 @@ def cmd_rm(args):
     repo = get_repo_for_path()
     rm(repo, args.path)
 
+def cmd_add(args):
+    repo = get_repo_for_path()
+    add(repo, args.path)
+
+def add(repo, paths):
+    # remove existing entries for these paths if they exist
+    rm(repo, paths, delete=False, skip_missing=True)
+
+    worktree = repo.worktree + os.sep
+
+    # stores tuples of (absolute_path, path_relative_to_worktree)
+    clean_paths = list()
+    for path in paths:
+        abspath = os.path.abspath(path)
+        if not (abspath.startswith(worktree) and os.path.isfile(abspath)):
+            raise Exception(f"Not a file, or outside the worktree: {paths}")
+        relpath = os.path.relpath(abspath, repo.worktree)
+        clean_paths.append((abspath, relpath))
+
+    index = index_read(repo)
+
+    for abspath, relpath in clean_paths:
+        # store the object in the gitdir and get its hash
+        with open(abspath, 'rb') as fp:
+            sha = object_hash(fp, b'blob', repo)
+        
+        # get file system metadata and create a new index entry
+        stat = os.stat(abspath)
+        ctime_s = int(stat.st_ctime)
+        ctime_ns = stat.st_ctime_ns % 10**9
+        mtime_s = int(stat.st_mtime)
+        mtime_ns = stat.st_mtime_ns % 10**9
+
+        entry = IndexEntry(ctime=(ctime_s, ctime_ns), mtime=(mtime_s, mtime_ns), dev=stat.st_dev, ino=stat.st_ino,
+                                mode_type=0b1000, mode_perms=0o644, uid=stat.st_uid, gid=stat.st_gid,
+                                fsize=stat.st_size, sha=sha, flag_assume_valid=False,
+                                flag_stage=False, name=relpath)
+        index.entries.append(entry)
+    
+    index_write(repo, index)
+
 def rm(repo, paths, delete=True, skip_missing=False):
     index = index_read(repo)
 
@@ -423,6 +464,10 @@ status_cmd = argsubparsers.add_parser("status", help="Show the working tree stat
 rm_cmd = argsubparsers.add_parser("rm", help="Remove files from the working tree and the index")
 rm_cmd.add_argument("path", nargs="+", help="Files to remove")
 
+add_cmd = argsubparsers.add_parser("add", help="Add file contents to the index")
+add_cmd.add_argument("path", nargs="+", help="Files to add to staging area")
+
+add(get_repo_for_path(), ['libgyatt.py'])
 # rm(get_repo_for_path(), ['test.txt'])
 # cmd_status({})
 # cmd_ls_tree("02f5a2e1747525f47657c3efcc0753d9ffdc46a0")
