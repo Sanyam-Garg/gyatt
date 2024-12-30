@@ -467,7 +467,7 @@ rm_cmd.add_argument("path", nargs="+", help="Files to remove")
 add_cmd = argsubparsers.add_parser("add", help="Add file contents to the index")
 add_cmd.add_argument("path", nargs="+", help="Files to add to staging area")
 
-add(get_repo_for_path(), ['libgyatt.py'])
+# add(get_repo_for_path(), ['libgyatt.py'])
 # rm(get_repo_for_path(), ['test.txt'])
 # cmd_status({})
 # cmd_ls_tree("02f5a2e1747525f47657c3efcc0753d9ffdc46a0")

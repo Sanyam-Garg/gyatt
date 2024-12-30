@@ -172,6 +172,7 @@ def index_read(repo):
     return Index(version=version, entries=entries)
 
 def index_write(repo, index):
+    index.entries = sorted(index.entries, key=lambda entry: entry.name)
     with open(get_path_to_repo_file(repo, "index"), 'wb') as fp:
 
         # HEADER
