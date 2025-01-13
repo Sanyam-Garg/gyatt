@@ -4,6 +4,7 @@ import pwd, grp
 from objects import *
 from index import *
 from ignore import gitignore_read, check_ignore
+from datetime import datetime
 
 def cmd_init(args):
     create_repo(args.path)
@@ -296,6 +297,29 @@ def cmd_status_index_worktree(repo, index):
         if not check_ignore(ignore, file):
             print(f" {file}")
 
+def cmd_commit(args):
+    repo = get_repo_for_path()
+    index = index_read(repo)
+
+    tree_hash = index_to_tree(repo, index)
+
+    commit = commit_create(repo, 
+                           tree_hash, 
+                           object_find(repo, "HEAD"), 
+                           gitconfig_get_user(gitconfig_read()), 
+                           datetime.now(), 
+                           args.message)
+
+    active_branch, is_branch = branch_get_active(repo)
+    if is_branch:
+        with open(get_path_to_repo_file(repo, os.path.join('refs/heads', active_branch)), 'w') as fp:
+            fp.write(commit + '\n')
+    else:
+        # otherwise update head
+        with open(get_path_to_repo_file(repo, "HEAD")) as fp:
+            fp.write(commit + '\n')
+
+
 def gitconfig_read():
     xdg_config_home = os.environ.get('XDG_CONFIG_HOME', '~/.config')
     configfiles = [
@@ -311,6 +335,25 @@ def gitconfig_get_user(config):
     if 'user' in config:
         if 'name' in config['user'] and 'email' in config['user']:
             return f"{config['user']['name']} <{config['user']['email']}>"
+
+def commit_create(repo, tree_hash, parent, author, timestamp, message):
+    commit = Commit()
+    commit.kvlm[b'tree'] = tree_hash.encode('ascii')
+    if parent:
+        commit.kvlm[b'parent'] = parent.encode('ascii')
+    
+    # format timezone
+    offset = int(timestamp.astimezone().utcoffset().total_seconds())
+    hours = offset // 3600
+    minutes = (offset % 3600) // 60
+    tz = f"{'+' if offset > 0 else '-'}{hours:02}{minutes:02}"
+
+    author = author + timestamp.strftime(" %s ") + tz
+    commit.kvlm[b'author'] = author.encode('utf-8')
+    commit.kvlm[b'committer'] = author.encode('utf-8')
+    commit.kvlm[None] = message.encode('utf-8')
+
+    return object_write(commit, repo)
 
 def tag_create(repo, name, ref, create_object=False):
     sha = object_find(repo, ref)
@@ -491,3 +534,4 @@ commit_cmd.add_argument("-m", metavar="message", dest="message", help="Message f
 # cmd_ls_tree("02f5a2e1747525f47657c3efcc0753d9ffdc46a0")
 # tag_create(get_repo_for_path(), "TEST", "311de2a48c30fd0fd92cf2f7ecf68ad1f8b35428", True)
 # cat_file(get_repo_for_path(), 'master', 'tree')
+# cmd_commit({'message': 'hi'})

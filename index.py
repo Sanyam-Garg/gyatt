@@ -246,7 +246,7 @@ def index_to_tree(repo, index: Index):
         
         files_for_dir[dirname].append(entry)
     
-    sorted_paths = dict(sorted(files_for_dir.keys(), key=len, reverse=True))
+    sorted_paths = sorted(files_for_dir.keys(), key=len, reverse=True)
 
     for path in sorted_paths:
         tree = Tree()
@@ -255,10 +255,10 @@ def index_to_tree(repo, index: Index):
             # each entry will become a tree leaf
             if isinstance(entry, IndexEntry):
                 leaf_mode = f"{entry.mode_type:02o}{entry.mode_perms:04o}".encode("ascii")
-                leaf = TreeLeaf(mode=leaf_mode, path=os.path.basename(entry.name), sha=entry.sha)
+                leaf = TreeLeaf(mode=leaf_mode, path=os.path.basename(entry.name).encode('ascii'), sha=entry.sha)
             else:
                 # tree. we've stored it as (basename, sha)
-                leaf = TreeLeaf(mode=b'040000', path=entry[0], sha=entry[1])
+                leaf = TreeLeaf(mode=b'040000', path=entry[0].encode('ascii'), sha=entry[1])
 
             tree.items.append(leaf)
         
