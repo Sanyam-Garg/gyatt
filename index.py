@@ -1,4 +1,4 @@
-from objects import get_path_to_repo_file
+from objects import get_path_to_repo_file, object_write, Tree, TreeLeaf
 import os
 from math import ceil
 
@@ -225,3 +225,50 @@ def index_write(repo, index):
                 pad = 8 - (idx % 8)
                 fp.write((0).to_bytes(pad, 'big'))
                 idx += pad 
+
+def index_to_tree(repo, index: Index):
+
+    files_for_dir = dict()
+    files_for_dir[""] = list()
+
+    for entry in index.entries:
+        dirname = os.path.dirname(entry.name)
+        
+        # for a path, we need to initialize empty arrays (which would be used to build trees)
+        # for **all** paths uptil root. We need
+        # them *all*, because even if a directory holds no files it
+        # will contain at least a tree.
+        key = dirname
+        while key != "":
+            if not key in files_for_dir:
+                files_for_dir[key] = list()
+            key = os.path.dirname(key)
+        
+        files_for_dir[dirname].append(entry)
+    
+    sorted_paths = dict(sorted(files_for_dir.keys(), key=len, reverse=True))
+
+    for path in sorted_paths:
+        tree = Tree()
+
+        for entry in files_for_dir[path]:
+            # each entry will become a tree leaf
+            if isinstance(entry, IndexEntry):
+                leaf_mode = f"{entry.mode_type:02o}{entry.mode_perms:04o}".encode("ascii")
+                leaf = TreeLeaf(mode=leaf_mode, path=os.path.basename(entry.name), sha=entry.sha)
+            else:
+                # tree. we've stored it as (basename, sha)
+                leaf = TreeLeaf(mode=b'040000', path=entry[0], sha=entry[1])
+
+            tree.items.append(leaf)
+        
+        # write the tree for this directory
+        sha = object_write(tree, repo)
+
+        # add the new tree hash to the current directory's parent
+        parent = os.path.dirname(path)
+        base = os.path.basename(path)
+        files_for_dir[parent].append((base, sha))
+    
+    # finally return the sha for the final object
+    return sha

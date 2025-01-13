@@ -296,6 +296,22 @@ def cmd_status_index_worktree(repo, index):
         if not check_ignore(ignore, file):
             print(f" {file}")
 
+def gitconfig_read():
+    xdg_config_home = os.environ.get('XDG_CONFIG_HOME', '~/.config')
+    configfiles = [
+        os.path.expanduser(os.path.join(xdg_config_home, "git/config")),
+        os.path.expanduser("~/.gitconfig")
+    ]
+
+    config = configparser.ConfigParser()
+    config.read(configfiles)
+    return config
+
+def gitconfig_get_user(config):
+    if 'user' in config:
+        if 'name' in config['user'] and 'email' in config['user']:
+            return f"{config['user']['name']} <{config['user']['email']}>"
+
 def tag_create(repo, name, ref, create_object=False):
     sha = object_find(repo, ref)
 
@@ -467,6 +483,8 @@ rm_cmd.add_argument("path", nargs="+", help="Files to remove")
 add_cmd = argsubparsers.add_parser("add", help="Add file contents to the index")
 add_cmd.add_argument("path", nargs="+", help="Files to add to staging area")
 
+commit_cmd = argsubparsers.add_parser("commit", help="Record changes to the repository")
+commit_cmd.add_argument("-m", metavar="message", dest="message", help="Message for this commit")
 # add(get_repo_for_path(), ['libgyatt.py'])
 # rm(get_repo_for_path(), ['test.txt'])
 # cmd_status({})
