@@ -535,3 +535,4 @@ commit_cmd.add_argument("-m", metavar="message", dest="message", help="Message f
 # tag_create(get_repo_for_path(), "TEST", "311de2a48c30fd0fd92cf2f7ecf68ad1f8b35428", True)
 # cat_file(get_repo_for_path(), 'master', 'tree')
 # cmd_commit({'message': 'hi'})
+# hello
